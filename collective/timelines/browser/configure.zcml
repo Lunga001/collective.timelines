@@ -48,7 +48,7 @@
   <configure zcml:condition="installed plone.app.collection">
     <browser:page
         name="timeline-json"
-        for="plone.app.collection.interfaces.ICollection"
+        for="*"
         class=".view.TimelineCollectionJSON"
         permission="zope2.View"
         />

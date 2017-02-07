@@ -15,7 +15,7 @@ def initialize(context):
 def format_datetime(date, year_only=False):
     if year_only:
         return str(date.year())
-    return '%s,%s,%s,%s,%s'%(date.year(),date.month(),date.day(),date.hour(),date.minute())
+    return '%s,%s,%s'%(date.year(),date.month(),date.day())
 
 def get_image_url(context, size='large'):
     # Look at the imaging view

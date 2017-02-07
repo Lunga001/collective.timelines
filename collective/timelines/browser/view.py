@@ -1,11 +1,15 @@
 import json
 from zope.component import getMultiAdapter, getAdapters
 from Acquisition import aq_inner
+from plone import api
 from Products.Five.browser import BrowserView
 from collective.timelines.interfaces import (ITimelineContent,
                                              ITimelineSupplement)
 from collective.timelines.browser.configuration import ITimelineSettings
 from Products.CMFCore.utils import getToolByName
+from wt.fleet.interfaces import IJob
+from zope.component import getUtility
+from zope.intid.interfaces import IIntIds
 
 
 class TimelineView(BrowserView):
@@ -26,7 +30,9 @@ class TimelineView(BrowserView):
 
     @property
     def data_url(self):
-        return '@@timeline-json'
+        context = self.context
+        abs_url = '%s/@@timeline-json' % context.absolute_url()
+        return abs_url
 
     @property
     def resource_base(self):
@@ -88,8 +94,48 @@ class TimelineTopicJSON(TimelineFolderJSON):
 class TimelineCollectionJSON(TimelineFolderJSON):
     """JSON representation of topic contents"""
 
-    def _get_contents(self):
+    def content_data(self):
         context = aq_inner(self.context)
-        # Filter query on content with a timeline date set
-        return context.results(batch=False, brains=False,
-                               sort_on='timeline_date')
+        context = aq_inner(self.context)
+        base_data = {"timeline": {"type":"default",
+                                  "date": []}}
+        data = ITimelineContent(context).data(ignore_date=True)
+        base_data['timeline'].update(data)
+        dates = base_data['timeline']['date']
+        intids = getUtility(IIntIds)
+        vuuid = intids.getId(context)
+        brains = api.content.find(
+                            object_provides=IJob.__identifier__,
+                            vehicle=vuuid,)
+        # Vehicle - Jobcards
+        for brain in brains:
+            startDate = brain.jobDate
+            startDate = "%s,%s,%s" % (
+                                        startDate.strftime('%Y'),
+                                        startDate.strftime('%m'),
+                                        startDate.strftime('%d'),
+                                        )
+            #TODO: What to do when endDate is None
+            endDate = brain.endDate
+            endDate = endDate if endDate is not None else brain.startDate
+            endDate = "%s,%s,%s" % (
+                                        endDate.strftime('%Y'),
+                                        endDate.strftime('%m'),
+                                        endDate.strftime('%d'),
+                                        )
+            date_data = {
+                            "startDate": startDate,
+                            "endDate": endDate,
+                            "headline": brain.jobNumber,
+                            "text":"<p>%s</p>" % brain.summary,
+                            "tag":"This is Optional",
+                            "asset": {
+                                #"media":"http://twitter.com/ArjunaSoriano/status/164181156147900416",
+                                #"thumbnail":"optional-32x32px.jpg",
+                                #"credit":"Credit Name Goes Here",
+                                #"caption":"Caption text goes here"
+                            }
+                        }
+            dates.append(date_data)
+
+        return base_data
