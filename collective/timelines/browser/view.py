@@ -96,42 +96,66 @@ class TimelineCollectionJSON(TimelineFolderJSON):
 
     def content_data(self):
         context = aq_inner(self.context)
-        context = aq_inner(self.context)
+        vehicleTitle = context.Title()
         base_data = {"timeline": {"type":"default",
                                   "date": []}}
-        data = ITimelineContent(context).data(ignore_date=True)
+        #data = ITimelineContent(context).data(ignore_date=True)
+        data = {"headline": vehicleTitle,
+                "text": "<p>Current KMs/Hours: %s/%s</p>" % (
+                                context.getOdometerReading(),
+                                context.getHourMeterReading(), 
+                                ),
+                }
         base_data['timeline'].update(data)
         dates = base_data['timeline']['date']
         intids = getUtility(IIntIds)
         vuuid = intids.getId(context)
+        mediaURL = '%s/folder.png' % api.portal.get().absolute_url()
         brains = api.content.find(
                             object_provides=IJob.__identifier__,
-                            vehicle=vuuid,)
+                            vehicle=vuuid,
+                            sort_on="jobDate")
         # Vehicle - Jobcards
         for brain in brains:
-            startDate = brain.jobDate
+            startDate = brain.wipDate 
+            if startDate is None:
+                startDate = brain.jobDate
             startDate = "%s,%s,%s" % (
                                         startDate.strftime('%Y'),
                                         startDate.strftime('%m'),
                                         startDate.strftime('%d'),
                                         )
             #TODO: What to do when endDate is None
-            endDate = brain.endDate
-            endDate = endDate if endDate is not None else brain.startDate
+            endDate = brain.completeDate
+            if endDate is None:
+                endDate = brain.jobDate
             endDate = "%s,%s,%s" % (
                                         endDate.strftime('%Y'),
                                         endDate.strftime('%m'),
                                         endDate.strftime('%d'),
                                         )
+            tag = ''
+            if startDate == endDate:
+                tag = 'End on same day'
             date_data = {
                             "startDate": startDate,
                             "endDate": endDate,
-                            "headline": brain.jobNumber,
-                            "text":"<p>%s</p>" % brain.summary,
-                            "tag":"This is Optional",
+                            "headline": '%s: %s' % (brain.jobNumber,
+                                                    brain.summary),
+                            "text":"""<p class='wtf-state-%s'>%s</p>
+                                      <p>Go to JobCard: <a href='%s' target='_blank'>
+                                        %s</a>
+                                      </p>
+                                    """ % (
+                                            brain.review_state,
+                                            brain.review_state,
+                                            brain.getURL(),
+                                            brain.jobNumber,
+                                           ),
+                            #"tag": tag,
                             "asset": {
-                                #"media":"http://twitter.com/ArjunaSoriano/status/164181156147900416",
-                                #"thumbnail":"optional-32x32px.jpg",
+                                "media": mediaURL,
+                                "thumbnail":mediaURL,
                                 #"credit":"Credit Name Goes Here",
                                 #"caption":"Caption text goes here"
                             }
